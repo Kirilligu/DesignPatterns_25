@@ -33,4 +33,18 @@ class event_type:
 
         return result
 
-    
+    @staticmethod
+    def before_reference_delete() -> str:
+        return "before_reference_delete"
+
+    @staticmethod
+    def reference_deleted() -> str:
+        return "reference_deleted"
+
+    @staticmethod
+    def reference_added() -> str:
+        return "reference_added"
+
+    @staticmethod
+    def reference_updated() -> str:
+        return "reference_updated"

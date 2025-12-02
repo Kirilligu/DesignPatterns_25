@@ -10,15 +10,18 @@ from Src.start_manager import start_manager
 from Src.Core.observe_service import observe_service
 from Src.Core.event_type import event_type
 from Src.Core.validator import operation_exception
-
+from Src.Dtos.reference_event_dto import ReferenceEventDto
+from Src.Logics.dto_factory import DtoFactory
 
 class ReferenceDeletionProtector:
     """Защита от удаления используемых справочников"""
-    def handle(self, event: str, params: dict):
+    def handle(self, event: str, params):
         if event != event_type.before_reference_delete():
             return
-        item = params.get("item")
-        ref_type = params.get("type")
+        if not isinstance(params, ReferenceEventDto):
+            return
+        item = params.item
+        ref_type = params.reference_type
         if not item or not ref_type:
             return
         manager = start_manager()
@@ -88,16 +91,7 @@ def api_add_reference(reference_type: str):
     try:
         data = request.get_json()
         data["id"] = str(uuid.uuid4())
-        if reference_type == "nomenclature":
-            dto = nomenclature_dto().create(data)
-        elif reference_type == "range":
-            dto = range_dto().create(data)
-        elif reference_type == "group":
-            dto = category_dto().create(data)
-        elif reference_type == "storage":
-            dto = storage_dto().create(data)
-        else:
-            return jsonify({"error": "Неверный тип"}), 400
+        dto = DtoFactory.create(reference_type, data)
         item = reference_service.add(reference_type, dto)
         return jsonify(item.to_dto().__dict__), 201
     except Exception as e:
@@ -109,16 +103,7 @@ def api_update_reference(reference_type: str, item_id: str):
     try:
         data = request.get_json()
         data["id"] = item_id
-        if reference_type == "nomenclature":
-            dto = nomenclature_dto().create(data)
-        elif reference_type == "range":
-            dto = range_dto().create(data)
-        elif reference_type == "group":
-            dto = category_dto().create(data)
-        elif reference_type == "storage":
-            dto = storage_dto().create(data)
-        else:
-            return jsonify({"error": "Неверный тип"}), 400
+        dto = DtoFactory.create(reference_type, data)
         item = reference_service.update(reference_type, item_id, dto)
         return jsonify(item.to_dto().__dict__)
     except Exception as e:

@@ -3,6 +3,8 @@ from Src.reposity_manager import reposity_manager
 from Src.Core.prototype import prototype
 from Src.Core.observe_service import observe_service
 from Src.Core.validator import validator, operation_exception
+from Src.Dtos.reference_event_dto import ReferenceEventDto
+from Src.Core.event_type import event_type
 import os
 import json
 
@@ -44,10 +46,7 @@ class reference_service:
         reference_service.__manager._start_manager__cache[item.unique_code] = item
 
         #уведомляем наблюдателей
-        observe_service.create_event("reference_added", {
-            "type": reference_type,
-            "item": item
-        })
+        observe_service.create_event(event_type.reference_added(),ReferenceEventDto(reference_type, item))
 
         reference_service.__save_to_file()
         return item
@@ -62,10 +61,10 @@ class reference_service:
         for key, value in new_data.items():
             if hasattr(item, key):
                 setattr(item, key, value)
-        observe_service.create_event("reference_updated", {
-            "type": reference_type,
-            "item": item
-        })
+        observe_service.create_event(
+            event_type.reference_updated(),
+            ReferenceEventDto(reference_type, item)
+        )
         reference_service.__save_to_file()
         return item
 
@@ -75,11 +74,10 @@ class reference_service:
         if not item:
             raise operation_exception("Элемент не найден")
         try:
-            observe_service.create_event("before_reference_delete", {
-                "type": reference_type,
-                "item": item,
-                "cancel": False
-            })
+            observe_service.create_event(
+                event_type.before_reference_delete(),
+                ReferenceEventDto(reference_type, item)
+            )
         except operation_exception:
             raise
         except Exception as e:
@@ -93,10 +91,10 @@ class reference_service:
 
         reference_service.__manager.data[key].remove(item)
         reference_service.__manager._start_manager__cache.pop(item_id, None)
-        observe_service.create_event("reference_deleted", {
-            "type": reference_type,
-            "item": item
-        })
+        observe_service.create_event(
+            event_type.reference_deleted(),
+            ReferenceEventDto(reference_type, item)
+        )
         reference_service.__save_to_file()
 
     @staticmethod

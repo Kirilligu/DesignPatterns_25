@@ -39,6 +39,6 @@ class observe_service:
             except operation_exception:
                 raise
             except Exception as e:
-                print(f"[observe_service] Ошибка в обработчике {handler.__class__.__name__}: {e}")
+                pass
 
 

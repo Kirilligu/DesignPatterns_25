@@ -49,7 +49,7 @@ class start_manager(abstract_manager):
             raise operation_exception("Не найден файл с данными по умолчанию!")
 
         try:
-            with open( self.file_name, 'r') as file_instance:
+            with open(self.file_name, 'r', encoding='utf-8') as file_instance:
                 data = json.load(file_instance)
                 return self.deserialize(data)
         except Exception as e:

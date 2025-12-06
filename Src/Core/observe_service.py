@@ -1,5 +1,5 @@
 from Src.Core.abstract_logic import abstract_logic
-
+from Src.Core.validator import operation_exception
 """
 Реализация наблюдателя
 """
@@ -33,7 +33,12 @@ class observe_service:
     """
     @staticmethod
     def create_event(  event: str, params ):
-        for instance in observe_service.handlers:        
-            instance.handle ( event, params  )
+        for handler in observe_service.handlers[:]:
+            try:
+                handler.handle(event, params)
+            except operation_exception:
+                raise
+            except Exception as e:
+                pass
 
 

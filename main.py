@@ -34,24 +34,12 @@ class ReferenceDeletionProtector:
             # проверяем транзакции
             for tr in data.get("transaction_key", []):
                 if getattr(tr, "nomenclature", None) == item:
-                    block_dto = log_event_dto.create(
-                        level=log_level.INFO,
-                        message='Attempt to delete used nomenclature blocked',
-                        context={'item_id': item.unique_code, 'item_name': item.name}
-                    )
-                    observe_service.create_event(event_type.log_info(), block_dto)
                     raise operation_exception(f"Нельзя удалить {item.name} - есть движения по складу")
 
             # проверяем рецепты
             for receipt in data.get("receipt_model", []):
                 for ri in receipt.composition:
                     if getattr(ri, "nomenclature", None) == item:
-                        block_dto = log_event_dto.create(
-                            level=log_level.INFO,
-                            message='Attempt to delete nomenclature used in recipe blocked',
-                            context={'item_id': item.unique_code, 'item_name': item.name, 'recipe': receipt.name}
-                        )
-                        observe_service.create_event(event_type.log_info(), block_dto)
                         raise operation_exception(
                             f"Нельзя удалить {item.name} -используется в рецепте «{receipt.name}»")
 
@@ -59,24 +47,12 @@ class ReferenceDeletionProtector:
         elif ref_type == "storage":
             for tr in data.get("transaction_key", []):
                 if getattr(tr, "storage", None) == item:
-                    block_dto = log_event_dto.create(
-                        level=log_level.INFO,
-                        message='Attempt to delete used storage blocked',
-                        context={'item_id': item.unique_code, 'item_name': item.name}
-                    )
-                    observe_service.create_event(event_type.log_info(), block_dto)
                     raise operation_exception(f"Нельзя удалить склад {item.name}")
 
         # группа
         elif ref_type == "group":
             for nom in data.get("nomenclature_model", []):
                 if getattr(nom, "group", None) == item:
-                    block_dto = log_event_dto.create(
-                        level=log_level.INFO,
-                        message='Attempt to delete used group blocked',
-                        context={'item_id': item.unique_code, 'item_name': item.name}
-                    )
-                    observe_service.create_event(event_type.log_info(), block_dto)
                     raise operation_exception(f"Нельзя удалить группу {item.name}")
 
 

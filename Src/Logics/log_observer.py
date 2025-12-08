@@ -7,7 +7,7 @@ from Src.Core.log_level import log_level
 from Src.Core.event_type import event_type
 from Src.settings_manager import settings_manager
 from Src.Dtos.log_event_dto import log_event_dto
-
+from Src.Dtos.reference_event_dto import ReferenceEventDto
 class log_observer(abstract_logic):
     __min_level = log_level.INFO
     __output = "console"
@@ -24,14 +24,7 @@ class log_observer(abstract_logic):
 
             #если настройки загружены,получаем параметры логирования
             if manager.settings:
-                level_str = manager.settings.log_min_level.upper()
-                if level_str == "DEBUG":
-                    self.__min_level = log_level.DEBUG
-                elif level_str == "INFO":
-                    self.__min_level = log_level.INFO
-                elif level_str == "ERROR":
-                    self.__min_level = log_level.ERROR
-
+                self.__min_level = manager.settings.log_min_level
                 self.__output = manager.settings.log_output
                 self.__file_name = manager.settings.log_file_name
                 self.__log_internal(
@@ -44,7 +37,6 @@ class log_observer(abstract_logic):
         except Exception as ex:
             self.set_exception(ex)
             self.__log_internal(f"Error loading logging settings: {str(ex)}")
-
     def __log_internal(self, message: str):
         """Внутреннее логирование для самого логгера"""
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -52,47 +44,105 @@ class log_observer(abstract_logic):
 
     def handle(self, event: str, params):
         super().handle(event, params)
+        level = None
+        message = ""
+        context = {}
+        if event == event_type.reference_added():
+            if not isinstance(params, ReferenceEventDto):
+                return
 
-        #обрабатываем только события логирования
-        if event not in [event_type.log_debug(), event_type.log_info(), event_type.log_error(),
-                         event_type.web_call(), event_type.crud_operation(),
-                         event_type.settings_change(), event_type.storage_operation()]:
-            return
+            level = log_level.INFO
+            message = "Reference added"
+            item = params.item
+            context = {
+                'reference_type': params.reference_type,
+                'item_id': item.unique_code if item else None,
+                'item_name': getattr(item, 'name', 'Unknown') if item else 'Unknown'
+            }
 
-        if isinstance(params, log_event_dto):
+        elif event == event_type.reference_updated():
+            if not isinstance(params, ReferenceEventDto):
+                return
+            level = log_level.INFO
+            message = "Reference updated"
+            item = params.item
+            context = {
+                'reference_type': params.reference_type,
+                'item_id': item.unique_code if item else None,
+                'item_name': getattr(item, 'name', 'Unknown') if item else 'Unknown'
+            }
+
+        elif event == event_type.reference_deleted():
+            if not isinstance(params, ReferenceEventDto):
+                return
+            level = log_level.INFO
+            message = "Reference deleted"
+            item = params.item
+            context = {
+                'reference_type': params.reference_type,
+                'item_id': item.unique_code if item else None,
+                'item_name': getattr(item, 'name', 'Unknown') if item else 'Unknown'
+            }
+
+        elif event == event_type.before_reference_delete():
+            if not isinstance(params, ReferenceEventDto):
+                return
+            level = log_level.INFO
+            message = "Reference delete check"
+            item = params.item
+            context = {
+                'reference_type': params.reference_type,
+                'item_id': item.unique_code if item else None,
+                'item_name': getattr(item, 'name', 'Unknown') if item else 'Unknown'
+            }
+        elif event in [event_type.log_debug(), event_type.log_info(), event_type.log_error(),
+                       event_type.web_call(), event_type.crud_operation(),
+                       event_type.settings_change(), event_type.storage_operation()]:
+            if not isinstance(params, log_event_dto):
+                return
             level = params.level
             message = params.message
             context = params.context
-        elif isinstance(params, dict):
-            level = params.get("level", log_level.INFO)
-            message = params.get("message", "")
-            context = params.get("context", {})
-        else:
+
+        elif event in [event_type.change_block_period(), event_type.convert_to_json()]:
             return
         if level is None:
-            level = log_level.INFO
-            if event == event_type.log_debug():
-                level = log_level.DEBUG
-            elif event == event_type.log_error():
-                level = log_level.ERROR
+            return
 
         #проверяем минимальный уровень
         if level.value < self.__min_level.value:
             return
-        if not message:
-            if event == event_type.web_call():
-                message = "Web API call"
-            elif event == event_type.crud_operation():
-                message = "CRUD operation"
-            elif event == event_type.settings_change():
-                message = "Settings changed"
-            elif event == event_type.storage_operation():
-                message = "Storage operation"
 
-        #формируем запись лога
+        #формируем запись лога с помощью отдельного метода
+        log_entry = self.__format_log_entry(event, level, message, context)
+
+        #выводим в консоль или файл
+        if self.__output == "console":
+            sys.stdout.write(log_entry + "\n")
+        else:
+            try:
+                directory = os.path.dirname(self.__file_name)
+                if directory and not os.path.exists(directory):
+                    os.makedirs(directory)
+                with open(self.__file_name, "a", encoding="utf-8") as f:
+                    f.write(log_entry + "\n")
+            except Exception as ex:
+                sys.stderr.write(f"ERROR writing to log file: {str(ex)}\n")
+                sys.stdout.write(log_entry + "\n")
+
+    def __format_log_entry(self, event: str, level: log_level, message: str, context: dict) -> str:
+        """
+        Форматирует запись лога
+        Args:
+            event: Имя события
+            level: Уровень логирования
+            message: Сообщение
+            context: Контекст
+        """
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         event_name = event.upper().replace("_", " ")
         log_entry = f"[{timestamp}] {event_name}: {level.name}: {message}"
+
         if isinstance(context, dict) and len(context) > 0:
             try:
                 ctx_parts = []
@@ -108,17 +158,4 @@ class log_observer(abstract_logic):
             except Exception:
                 pass
 
-        #консоль или файл
-        if self.__output == "console":
-            sys.stdout.write(log_entry + "\n")
-        else:
-            try:
-                directory = os.path.dirname(self.__file_name)
-                if directory and not os.path.exists(directory):
-                    os.makedirs(directory)
-                with open(self.__file_name, "a", encoding="utf-8") as f:
-                    f.write(log_entry + "\n")
-            except Exception as ex:
-                self.set_exception(ex)
-                sys.stderr.write(f"ERROR writing to log file: {str(ex)}\n")
-                sys.stderr.write(log_entry + "\n")
+        return log_entry

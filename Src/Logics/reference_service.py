@@ -98,10 +98,10 @@ class reference_service:
             observe_service.create_event(event_type.log_info(), not_found_dto)
             reference_service.__log_crud_operation("GET", reference_type, item_id, success=False, error="Not found")
             return None
-
         except Exception as e:
             reference_service.__log_crud_operation("GET", reference_type, item_id, success=False, error=str(e))
             raise
+
     @staticmethod
     def add(reference_type: str, item):
         try:
@@ -111,26 +111,22 @@ class reference_service:
                 context={'reference_type': reference_type, 'item_name': getattr(item, 'name', 'Unknown')}
             )
             observe_service.create_event(event_type.log_debug(), debug_dto)
+
             key = {
                 "nomenclature": reposity_manager.nomenclature_key(),
                 "range": reposity_manager.range_key(),
                 "group": reposity_manager.group_key(),
                 "storage": reposity_manager.storage_key(),
             }[reference_type]
+
             reference_service.__manager.data[key].append(item)
             reference_service.__manager._start_manager__cache[item.unique_code] = item
-
-            # Уведомляем наблюдателей
             observe_service.create_event(event_type.reference_added(), ReferenceEventDto(reference_type, item))
             reference_service.__save_to_file()
-            info_dto = log_event_dto.create(
-                level=log_level.INFO,
-                message=f'{reference_type} added successfully',
-                context={'id': item.unique_code, 'name': item.name}
-            )
-            observe_service.create_event(event_type.log_info(), info_dto)
             reference_service.__log_crud_operation("ADD", reference_type, item.unique_code, success=True)
+
             return item
+
         except Exception as e:
             reference_service.__log_crud_operation("ADD", reference_type, success=False, error=str(e))
             raise
@@ -148,23 +144,16 @@ class reference_service:
             if not item:
                 raise operation_exception("Элемент не найден")
             old_name = getattr(item, 'name', 'Unknown')
-
-            # Обновляем поля
             for key, value in new_data.items():
                 if hasattr(item, key):
                     setattr(item, key, value)
+
             new_name = getattr(item, 'name', old_name)
             observe_service.create_event(
                 event_type.reference_updated(),
                 ReferenceEventDto(reference_type, item)
             )
             reference_service.__save_to_file()
-            info_dto = log_event_dto.create(
-                level=log_level.INFO,
-                message=f'{reference_type} updated successfully',
-                context={'item_id': item_id, 'old_name': old_name, 'new_name': new_name}
-            )
-            observe_service.create_event(event_type.log_info(), info_dto)
             reference_service.__log_crud_operation("UPDATE", reference_type, item_id, success=True)
             return item
         except Exception as e:
@@ -210,12 +199,6 @@ class reference_service:
                 ReferenceEventDto(reference_type, item)
             )
             reference_service.__save_to_file()
-            info_dto = log_event_dto.create(
-                level=log_level.INFO,
-                message=f'{reference_type} deleted successfully',
-                context={'item_id': item_id, 'name': item_name}
-            )
-            observe_service.create_event(event_type.log_info(), info_dto)
             reference_service.__log_crud_operation("DELETE", reference_type, item_id, success=True)
         except Exception as e:
             reference_service.__log_crud_operation("DELETE", reference_type, item_id, success=False, error=str(e))

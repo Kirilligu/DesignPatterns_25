@@ -124,32 +124,45 @@ class settings_model:
             observe_service.create_event(event_type.settings_change(), settings_dto)
 
     #настройки логирования
-    __log_min_level: str = "INFO"
+    __log_min_level: log_level = log_level.INFO
     __log_output: str = "console"
     __log_file_name: str = "system.log"
 
     @property
-    def log_min_level(self) -> str:
+    def log_min_level(self) -> log_level:
         return self.__log_min_level
 
     @log_min_level.setter
-    def log_min_level(self, value: str):
-        validator.validate(value, str)
-        if value.upper() not in ["DEBUG", "INFO", "ERROR"]:
-            raise argument_exception("Некорректный уровень логирования!")
+    def log_min_level(self, value):
+        # Принимаем и строку и log_level
+        if isinstance(value, str):
+            # Преобразуем строку в log_level
+            value_upper = value.upper()
+            if value_upper == "DEBUG":
+                value = log_level.DEBUG
+            elif value_upper == "INFO":
+                value = log_level.INFO
+            elif value_upper == "ERROR":
+                value = log_level.ERROR
+            else:
+                raise argument_exception("Некорректный уровень логирования!")
+        elif not isinstance(value, log_level):
+            raise argument_exception(f"Ожидается log_level или str, получено {type(value)}")
+
         old = self.__log_min_level
-        self.__log_min_level = value.upper()
+        self.__log_min_level = value
+
         if old != value:
             info_dto = log_event_dto.create(
                 level=log_level.INFO,
                 message='Log min level changed',
-                context={'old': old, 'new': value}
+                context={'old': old.name, 'new': value.name}
             )
             observe_service.create_event(event_type.log_info(), info_dto)
             settings_dto = log_event_dto.create(
                 level=log_level.INFO,
                 message='Settings updated: log_min_level',
-                context={'new': value}
+                context={'new': value.name}
             )
             observe_service.create_event(event_type.settings_change(), settings_dto)
 

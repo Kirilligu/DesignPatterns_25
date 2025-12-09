@@ -33,7 +33,12 @@ class settings_model:
         #логирование изменения только если значение изменилось
         if old != value:
             #событие смены даты блокировки
-            observe_service.create_event(event_type.change_block_period(), {'new_date': value})
+            block_dto = log_event_dto.create(
+                level=log_level.INFO,
+                message='Block period changed',
+                context={'new_date': value.strftime("%Y-%m-%d")}
+            )
+            observe_service.create_event(event_type.change_block_period(), block_dto)
 
             #логирование INFO уровня
             info_dto = log_event_dto.create(
@@ -133,32 +138,24 @@ class settings_model:
         return self.__log_min_level
 
     @log_min_level.setter
-    def log_min_level(self, value):
-        # Принимаем и строку и log_level
-        if isinstance(value, str):
-            # Преобразуем строку в log_level
-            value_upper = value.upper()
-            if value_upper == "DEBUG":
-                value = log_level.DEBUG
-            elif value_upper == "INFO":
-                value = log_level.INFO
-            elif value_upper == "ERROR":
-                value = log_level.ERROR
-            else:
-                raise argument_exception("Некорректный уровень логирования!")
-        elif not isinstance(value, log_level):
-            raise argument_exception(f"Ожидается log_level или str, получено {type(value)}")
+    def log_min_level(self, value: log_level):
+        if not isinstance(value, log_level):
+            raise argument_exception("log_min_level должен быть типом log_level (DEBUG, INFO, ERROR)")
 
-        old = self.__log_min_level
+        old = self.__log_min_level if hasattr(self, '_settings_model__log_min_level') else None
+
         self.__log_min_level = value
 
         if old != value:
+            # логируем изменение
             info_dto = log_event_dto.create(
                 level=log_level.INFO,
                 message='Log min level changed',
-                context={'old': old.name, 'new': value.name}
+                context={'old': old.name if old else None, 'new': value.name}
             )
             observe_service.create_event(event_type.log_info(), info_dto)
+
+            # генерируем событие изменения настроек
             settings_dto = log_event_dto.create(
                 level=log_level.INFO,
                 message='Settings updated: log_min_level',

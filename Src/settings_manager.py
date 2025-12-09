@@ -70,8 +70,14 @@ class settings_manager(abstract_manager):
                     logging_settings = settings["logging"]
                     if "min_level" in logging_settings:
                         min_level = logging_settings["min_level"]
-                        if hasattr(self.settings, 'log_min_level'):
-                            self.settings.log_min_level = min_level
+                        if min_level.upper() == "DEBUG":
+                            self.settings.log_min_level = log_level.DEBUG
+                        elif min_level.upper() == "INFO":
+                            self.settings.log_min_level = log_level.INFO
+                        elif min_level.upper() == "ERROR":
+                            self.settings.log_min_level = log_level.ERROR
+                        else:
+                            self.settings.log_min_level = log_level.INFO
                     if "output" in logging_settings:
                         output = logging_settings["output"]
                         if hasattr(self.settings, 'log_output'):
@@ -89,7 +95,7 @@ class settings_manager(abstract_manager):
                             'file_name': logging_settings.get('file_name', 'system.log')
                         }
                     )
-                    observe_service.create_event(event_type.settings_change(), settings_dto)
+
                 #логирование результата загрузки
                 if result:
                     success_dto = log_event_dto.create(
@@ -107,7 +113,7 @@ class settings_manager(abstract_manager):
                     observe_service.create_event(event_type.log_error(), error_dto)
 
                 return result
-
+            observe_service.create_event(event_type.settings_change(), settings_dto)
 
         except Exception as ex:
             #логирование ошибки
@@ -199,13 +205,9 @@ class settings_manager(abstract_manager):
         company.inn = -1
         self.__settings = settings_model()
         self.__settings.company = company
-        if hasattr(self.__settings, 'log_min_level'):
-            self.__settings.log_min_level = "INFO"
-        if hasattr(self.__settings, 'log_output'):
-            self.__settings.log_output = "console"
-        if hasattr(self.__settings, 'log_file_name'):
-            self.__settings.log_file_name = "system.log"
-
+        self.__settings.log_min_level = log_level.INFO
+        self.__settings.log_output = "console"
+        self.__settings.log_file_name = "system.log"
         
 
 

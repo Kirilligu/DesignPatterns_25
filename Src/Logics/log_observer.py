@@ -8,6 +8,7 @@ from Src.Core.event_type import event_type
 from Src.settings_manager import settings_manager
 from Src.Dtos.log_event_dto import log_event_dto
 from Src.Dtos.reference_event_dto import ReferenceEventDto
+from Src.Core.observe_service import observe_service
 class log_observer(abstract_logic):
     __min_level = log_level.INFO
     __output = "console"
@@ -15,28 +16,24 @@ class log_observer(abstract_logic):
 
     def __init__(self):
         super().__init__()
-        self.__load_logging_settings()
+        observe_service.add(self)
+        self.apply_current_settings()
 
-    def __load_logging_settings(self):
-        """Загружаем настройки логирования из settings_manager"""
+    def apply_current_settings(self):
+        """
+        вызывается один раз при старте и каждый раз при событии settings_change
+        """
         try:
-            manager = settings_manager()
-
-            #если настройки загружены,получаем параметры логирования
-            if manager.settings:
-                self.__min_level = manager.settings.log_min_level
-                self.__output = manager.settings.log_output
-                self.__file_name = manager.settings.log_file_name
-                self.__log_internal(
-                    f"Logging settings loaded from manager: min_level={self.__min_level.name}, output={self.__output}, file_name={self.__file_name}")
-            else:
-                self.__log_internal("Settings not loaded, using defaults")
-
-        except AttributeError:
-            self.__log_internal("Logging properties not found in settings, using defaults")
+            settings = settings_manager().settings
+            self.__min_level = settings.log_min_level
+            self.__output = settings.log_output
+            self.__file_name = settings.log_file_name
+            self.__log_internal(
+                f"Logging settings applied: level={self.__min_level.name}, "
+                f"output={self.__output}, file={self.__file_name}"
+            )
         except Exception as ex:
-            self.set_exception(ex)
-            self.__log_internal(f"Error loading logging settings: {str(ex)}")
+            self.__log_internal(f"Failed to apply logging settings: {ex}")
     def __log_internal(self, message: str):
         """Внутреннее логирование для самого логгера"""
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -44,6 +41,9 @@ class log_observer(abstract_logic):
 
     def handle(self, event: str, params):
         super().handle(event, params)
+        if event == event_type.settings_change():
+            self.apply_current_settings()
+            return
         level = None
         message = ""
         context = {}
@@ -95,17 +95,17 @@ class log_observer(abstract_logic):
                 'item_id': item.unique_code if item else None,
                 'item_name': getattr(item, 'name', 'Unknown') if item else 'Unknown'
             }
-        elif event in [event_type.log_debug(), event_type.log_info(), event_type.log_error(),
-                       event_type.web_call(), event_type.crud_operation(),
-                       event_type.settings_change(), event_type.storage_operation()]:
+        elif event in (event_type.log_debug(),
+                           event_type.log_info(),
+                           event_type.log_error(),
+                           event_type.web_call(),
+                           event_type.crud_operation(),
+                           event_type.storage_operation()):
             if not isinstance(params, log_event_dto):
                 return
             level = params.level
             message = params.message
-            context = params.context
-
-        elif event in [event_type.change_block_period(), event_type.convert_to_json()]:
-            return
+            context = params.context or {}
         if level is None:
             return
 

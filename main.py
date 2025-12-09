@@ -78,6 +78,7 @@ observe_service.add(ReferenceDeletionProtector())
 
 logger = log_observer()
 observe_service.add(logger)
+logger.apply_current_settings()
 
 #логируем запуск системы
 system_start_dto = log_event_dto.create(

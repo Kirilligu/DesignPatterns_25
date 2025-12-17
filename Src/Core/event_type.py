@@ -48,3 +48,35 @@ class event_type:
     @staticmethod
     def reference_updated() -> str:
         return "reference_updated"
+
+    """
+       События для логирования
+       """
+
+    @staticmethod
+    def log_debug() -> str:
+        return "log_debug"
+
+    @staticmethod
+    def log_info() -> str:
+        return "log_info"
+
+    @staticmethod
+    def log_error() -> str:
+        return "log_error"
+
+    @staticmethod
+    def web_call() -> str:
+        return "web_call"
+
+    @staticmethod
+    def crud_operation() -> str:
+        return "crud_operation"
+
+    @staticmethod
+    def settings_change() -> str:
+        return "settings_change"
+
+    @staticmethod
+    def storage_operation() -> str:
+        return "storage_operation"
